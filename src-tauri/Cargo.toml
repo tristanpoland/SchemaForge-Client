@@ -1,0 +1,33 @@
+[package]
+name = "schemaforge-client"
+version = "0.1.0"
+description = "A Tauri-Based cross-platform terminal"
+authors = ["you"]
+license = ""
+repository = ""
+default-run = "schemaforge-client"
+edition = "2021"
+rust-version = "1.66"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[build-dependencies]
+tauri-build = { version = "1.5", features = [] }
+
+[dependencies]
+serde_json = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+tauri = { version = "1.5", features = [ "path-all", "fs-all", "dialog-all", "process-all", "window-all", "shell-sidecar", "os-all", "shell-execute", "shell-open"] }
+portable-pty = "0.8.1"
+encoding_rs = "0.8.35"
+chrono = "0.4.39"
+thiserror = "2.0.11"
+git2 = "0.20.0"
+
+[features]
+# by default Tauri runs in production mode
+# when `tauri dev` runs it is executed with `cargo run --no-default-features` if `devPath` is an URL
+default = [ "custom-protocol" ]
+# this feature is used used for production builds where `devPath` points to the filesystem
+# DO NOT remove this
+custom-protocol = [ "tauri/custom-protocol" ]

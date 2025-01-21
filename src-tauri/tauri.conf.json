@@ -1,0 +1,129 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/schema.json",
+  "build": {
+    "beforeBuildCommand": "npm run next-build",
+    "beforeDevCommand": "npm run next-start",
+    "devPath": "http://localhost:3000",
+    "distDir": "../out"
+  },
+  "package": {
+    "productName": "nebula-terminal",
+    "version": "0.1.0"
+  },
+  "tauri": {
+    "allowlist": {
+      "all": false,
+      "window": {
+        "all": true
+      },
+      "process": {
+        "all": true,
+        "exit": true,
+        "relaunch": true,
+        "relaunchDangerousAllowSymlinkMacos": true
+      },
+      "os": {
+        "all": true
+      },
+      "shell": {
+        "all": false,
+        "execute": true,
+        "open": true,
+        "scope": [
+          {
+            "name": "cmd",
+            "cmd": "cmd",
+            "args": true
+          },
+          {
+            "name": "powershell",
+            "cmd": "powershell",
+            "args": true
+          },
+          {
+            "name": "cmd-exec",
+            "cmd": "cmd.exe",
+            "args": ["/C", { "validator": "\\S+" }]
+          },
+          {
+            "name": "powershell-exec",
+            "cmd": "powershell.exe",
+            "args": ["-Command", { "validator": ".*" }]
+          }
+        ],
+        "sidecar": true
+      },
+      "dialog": {
+        "all": true,
+        "ask": true,
+        "confirm": true,
+        "message": true,
+        "open": true,
+        "save": true
+      },
+      "fs": {
+        "all": true,
+        "readFile": true,
+        "writeFile": true,
+        "readDir": true,
+        "exists": true,
+        "scope": ["**"]
+      },
+      "path": {
+        "all": true
+      }
+    },
+    "bundle": {
+      "active": true,
+      "category": "DeveloperTool",
+      "copyright": "",
+      "externalBin": [],
+      "icon": [
+        "icons/32x32.png",
+        "icons/128x128.png",
+        "icons/128x128@2x.png",
+        "icons/icon.icns",
+        "icons/icon.ico"
+      ],
+      "identifier": "com.nebula-terminal.dev",
+      "longDescription": "",
+      "resources": [],
+      "shortDescription": "",
+      "targets": "all",
+      "macOS": {
+        "entitlements": null,
+        "exceptionDomain": "",
+        "frameworks": [],
+        "providerShortName": null,
+        "signingIdentity": null
+      },
+      "windows": {
+        "certificateThumbprint": null,
+        "digestAlgorithm": "sha256",
+        "timestampUrl": ""
+      },
+      "deb": {
+        "depends": []
+      }
+    },
+    "security": {
+      "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' ipc: http://localhost:*"
+    },
+    "updater": {
+      "active": false
+    },
+    "windows": [
+      {
+        "decorations": true,
+        "fullscreen": false,
+        "resizable": true,
+        "transparent": false,
+        "title": "Nebula",
+        "width": 1000,
+        "height": 700,
+        "minWidth": 600,
+        "minHeight": 400
+      }
+    ]
+  }
+}
