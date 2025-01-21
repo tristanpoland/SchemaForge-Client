@@ -1,8 +1,8 @@
 "use client"
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
-import { Button } from '../components/ui/Button';
-import { Input } from '../components/ui/Input';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
 import { Plus, FileText, Move, ZoomIn, ZoomOut, X, Edit2 } from 'lucide-react';
 
 const DATA_TYPES = {
@@ -19,106 +19,112 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "../components/ui/Dialog"
+} from "@/components/ui/Dialog"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "../components/ui/Select"
-import { Checkbox } from "../components/ui/Checkbox"
+} from "@/components/ui/Select"
+import { Checkbox } from "@/components/ui/Checkbox"
 
 const parseSQL = (sql, dialect = 'standard') => {
   const tables = [];
-  // Handle different schema prefixes (e.g., "public.")
-  const tableRegex = /CREATE TABLE (?:[\w.]+\.)?([\w]+)\s*\(([\s\S]*?)\)(?:\s*LOCALITY[\s\S]*?(?=CREATE|$)|\s*(?=CREATE|$))/gi;
-  
-  // Enhanced column regex to handle more complex types and constraints
-  const columnRegex = /\s*([\w_]+)\s+([\w]+(?:\([\w\s,]*\))?)\s*(?:NOT NULL|NULL)?\s*(?:DEFAULT\s+[\w_()]+)?,?/gi;
-  
-  // Handle primary key constraints in different formats
-  const primaryKeyRegex = /CONSTRAINT\s+[\w_]+\s+PRIMARY KEY\s*\(([\w\s,]+)(?:\s+ASC)?\)/gi;
-  const simplePrimaryKeyRegex = /PRIMARY KEY\s*\(([\w\s,]+)(?:\s+ASC)?\)/gi;
-  
-  // Enhanced foreign key regex for different dialects
-  const foreignKeyRegex = /(?:CONSTRAINT\s+[\w_]+\s+)?FOREIGN KEY\s*\(([\w_]+)\)\s*REFERENCES\s+([\w.]+)\s*\(([\w_]+)\)/gi;
-
-  let match;
-  while ((match = tableRegex.exec(sql)) !== null) {
-    const tableName = match[1];
-    const columnsString = match[2];
+  try {
+    // Remove any schema references (e.g., 'public.')
+    sql = sql.replace(/public\./g, '');
     
-    const table = {
-      id: `table-${Date.now()}-${Math.random()}`,
-      name: tableName,
-      columns: [],
-      position: { x: 50 + Math.random() * 200, y: 50 + Math.random() * 200 }
-    };
-
-    // Parse columns
-    let columnMatch;
-    while ((columnMatch = columnRegex.exec(columnsString)) !== null) {
-      if (columnMatch[1].toUpperCase() === 'CONSTRAINT') continue;
+    // First, split into individual CREATE TABLE statements
+    const tableStatements = sql.split(/CREATE TABLE/).filter(s => s.trim());
+    
+    for (const tableStatement of tableStatements) {
+      // Extract table name and body
+      const tableMatch = tableStatement.match(/\s*(\w+)\s*\(([\s\S]*?)\);/);
+      if (!tableMatch) continue;
       
-      const columnName = columnMatch[1];
-      let columnType = columnMatch[2].toUpperCase();
+      const tableName = tableMatch[1];
+      const tableBody = tableMatch[2];
       
-      // Skip if this is a FOREIGN KEY or CONSTRAINT declaration
-      if (['FOREIGN', 'PRIMARY', 'CONSTRAINT'].includes(columnName.toUpperCase())) continue;
-      
-      // Standardize type names across different dialects
-      const typeMap = {
-        'INT8': 'BIGINT',
-        'STRING': 'TEXT',
-        'BOOL': 'BOOLEAN',
-        'TIMESTAMP': 'TIMESTAMP',
-        'SERIAL': 'INT'
+      const table = {
+        id: `table-${Date.now()}-${Math.random()}`,
+        name: tableName,
+        columns: [],
+        position: { x: 50 + Math.random() * 200, y: 50 + Math.random() * 200 }
       };
       
-      Object.entries(typeMap).forEach(([from, to]) => {
-        if (columnType.includes(from)) columnType = to;
-      });
+      // Split into individual column/constraint definitions
+      const definitions = tableBody
+        .split(',')
+        .map(d => d.trim())
+        .filter(d => d && !d.startsWith('INDEX')); // Skip INDEX statements
       
-      const isPrimaryKey = columnsString.includes(`${columnName} ${columnType} PRIMARY KEY`) ||
-                          columnsString.includes(`PRIMARY KEY (${columnName})`) ||
-                          columnsString.toLowerCase().includes(`constraint`) && 
-                          columnsString.toLowerCase().includes(`primary key`) && 
-                          columnsString.toLowerCase().includes(`(${columnName.toLowerCase()}`) ||
-                          columnsString.toLowerCase().includes(`(${columnName.toLowerCase()} asc`);
-                          
-      const isNotNull = columnsString.includes(`${columnName} ${columnType} NOT NULL`) ||
-                       columnsString.includes(`${columnName} ${columnType} NULL`) === false;
-      
-      table.columns.push({
-        name: columnName,
-        type: columnType,
-        primaryKey: isPrimaryKey,
-        notNull: isNotNull
-      });
-    }
-
-    // Parse foreign keys
-    let fkMatch;
-    while ((fkMatch = foreignKeyRegex.exec(columnsString)) !== null) {
-      const columnName = fkMatch[1];
-      const referenceTable = fkMatch[2];
-      const referenceColumn = fkMatch[3];
-      
-      // Find the column and add foreign key info
-      const column = table.columns.find(col => col.name === columnName);
-      if (column) {
-        column.foreignKey = {
-          table: referenceTable,
-          column: referenceColumn
+      for (const def of definitions) {
+        // Check if it's a FOREIGN KEY constraint
+        const fkMatch = def.match(/FOREIGN KEY\s*\((\w+)\)\s*REFERENCES\s*(?:[\w.]+\.)?(\w+)\s*\((\w+)\)/i);
+        if (fkMatch) {
+          const [_, columnName, referenceTable, referenceColumn] = fkMatch;
+          const column = table.columns.find(col => col.name === columnName);
+          if (column) {
+            column.foreignKey = {
+              table: referenceTable,
+              column: referenceColumn
+            };
+          }
+          continue;
+        }
+        
+        // Parse regular column definition
+        const colMatch = def.match(/^(\w+)\s+([\w()]+)(?:\s+(.*))?$/);
+        if (!colMatch) continue;
+        
+        const [_, columnName, columnType, constraints] = colMatch;
+        
+        // Skip if this looks like a constraint definition
+        if (['CONSTRAINT', 'PRIMARY', 'FOREIGN', 'INDEX'].includes(columnName.toUpperCase())) {
+          continue;
+        }
+        
+        const column = {
+          name: columnName,
+          type: columnType.toUpperCase(),
+          primaryKey: false,
+          notNull: false
         };
+        
+        // Parse constraints if present
+        if (constraints) {
+          column.primaryKey = /PRIMARY KEY/i.test(constraints);
+          column.notNull = /NOT NULL/i.test(constraints);
+        }
+        
+        table.columns.push(column);
+      }
+      
+      // Only add table if it has columns
+      if (table.columns.length > 0) {
+        tables.push(table);
+      }
+    }
+    
+    // Post-process foreign key relationships
+    for (const table of tables) {
+      for (const column of table.columns) {
+        if (column.foreignKey) {
+          // Ensure referenced table exists
+          const referencedTable = tables.find(t => t.name === column.foreignKey.table);
+          if (!referencedTable) {
+            delete column.foreignKey;
+          }
+        }
       }
     }
 
-    tables.push(table);
+    return tables;
+  } catch (error) {
+    console.error('Error parsing SQL:', error);
+    throw new Error(`Failed to parse SQL: ${error.message}`);
   }
-
-  return tables;
 };
 
 const TableNode = ({ 
@@ -430,19 +436,19 @@ const SchemaForge = () => {
     }
   };
 
-  const generateSQL = () => {
+  const generateSQL = (tables, dialect = 'standard') => {
     let sql = '';
-    // Add header comment
     sql += '-- Generated by SchemaForge\n';
+    sql += `-- Dialect: ${dialect}\n`;
     sql += `-- Generated at: ${new Date().toISOString()}\n\n`;
-
-    // Sort tables to handle foreign key dependencies
+  
+    // Sort tables to handle dependencies
     const sortedTables = [...tables].sort((a, b) => {
       const aHasForeignKeys = a.columns.some(col => col.foreignKey);
       const bHasForeignKeys = b.columns.some(col => col.foreignKey);
       return aHasForeignKeys ? 1 : bHasForeignKeys ? -1 : 0;
     });
-    
+  
     sortedTables.forEach(table => {
       sql += `CREATE TABLE ${table.name} (\n`;
       
@@ -457,28 +463,19 @@ const SchemaForge = () => {
         }
         return def;
       });
-      
+  
       // Foreign key constraints
       const foreignKeys = table.columns
         .filter(column => column.foreignKey)
         .map(column => 
           `  FOREIGN KEY (${column.name}) REFERENCES ${column.foreignKey.table}(${column.foreignKey.column})`
         );
-      
+  
       sql += [...columnDefs, ...foreignKeys].join(',\n');
       sql += '\n);\n\n';
     });
-    
-    // Create and trigger download
-    const blob = new Blob([sql], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'schema.sql';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+  
+    return sql;
   };
 
   const handleTableSave = (editedTable) => {
@@ -581,8 +578,16 @@ const SchemaForge = () => {
                     reader.onload = (event) => {
                       const sql = event.target?.result;
                       if (typeof sql === 'string') {
-                        const importedTables = parseSQL(sql, selectedDialect);
-                        setTables(importedTables);
+                        try {
+                          const importedTables = parseSQL(sql, selectedDialect);
+                          if (importedTables.length === 0) {
+                            alert('No valid tables found in the SQL file. Please check the file format.');
+                          } else {
+                            setTables(importedTables);
+                          }
+                        } catch (error) {
+                          alert(`Error importing SQL: ${error.message}`);
+                        }
                       }
                     };
                     reader.readAsText(file);
@@ -593,7 +598,22 @@ const SchemaForge = () => {
           </div>
           
           <Button
-            onClick={generateSQL}
+            onClick={() => {
+              try {
+                const sql = generateSQL(tables, selectedDialect);
+                const blob = new Blob([sql], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'schema.sql';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+              } catch (error) {
+                alert(`Error generating SQL: ${error.message}`);
+              }
+            }}
             className="flex items-center bg-neutral-800 hover:bg-neutral-700"
           >
             <FileText className="w-4 h-4 mr-2" />
